@@ -59,116 +59,67 @@
         <h3 class="italic">Click table row to view event details</h3>
       </div>
       <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left">Event Name</th>
-              <th class="p-4 text-left">Event Date</th>
-              <th class="p-4 text-left">Event Address</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({name: 'eventdetails', params: { id: event._id } })"
-              v-for="event in events" :key="event._id" class="cursor-pointer"
-              :class="{ 'hoverRow': hoverId === event._id }" @mouseenter="hoverId = event._id"
-              @mouseleave="hoverId = null">
-              <td class="p-2 text-left">{{ event.name }}</td>
-              <td class="p-2 text-left">{{ formatDate(event.date) }}</td>
-              <td class="p-2 text-left">{{ event.address.line1 }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <p v-if="loading" class="p-4 text-gray-500 animate-pulse">Loading events...</p>
+        <div v-else-if="error" class="p-4 bg-red-50 text-red-900">
+          <p class="font-bold">Couldn't load events: {{ error }}</p>
+          <button class="mt-2 bg-red-700 text-white rounded" @click="execute()">Retry</button>
+        </div>
+        <DataTable v-else :columns="columns" :rows="events || []"
+          @row-click="(event) => router.push({ name: 'eventdetails', params: { id: event._id } })" />
       </div>
     </div>
   </main>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getEvents, searchEvents } from '../api/api'
-import { useToast } from 'vue-toastification'
+import { useApi } from '../composables/useApi'
+import DataTable from '../components/DataTable.vue'
 
-//Notifications
-const toast = useToast()
+const router = useRouter()
 
-export default {
-  data() {
-    return {
-      //variable to hold all events for the organization
-      events: null,
-      // Parameters for search to occur
-      searchBy: null,
-      name: null,
-      eventDate: null,
-      // variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-      hoverId: null,
-    }
-  },
-  mounted() {
-    // when component is mounted, load the data
-    this.loadData();
-  },
-  methods: {
-    // method called when component is mounted
-    async loadData() {
-      // Resets variables used for search
-      this.searchBy = null
-      this.name = null
-      this.eventDate = null
+// Parameters for search to occur
+const searchBy = ref(null)
+const name = ref(null)
+const eventDate = ref(null)
 
-      // show loading wheel
-      this.isLoading = true;
-      // get list of events
-      try {
-        const response = await getEvents();
-        this.events = response;
-      } catch (error) {
-        toast.error('loadData error', error)
-      }
-    },
+// no query = get everything
+const { data: events, loading, error, execute } = useApi((query) => query ? searchEvents(query) : getEvents())
 
-    // method called when user searches for an event
-    async handleSubmitForm() {
-      // if user searches by event name
-      if (this.searchBy === 'Event Name') {
-        if (this.name) {
-          try {
-            const query = {
-              searchBy: 'name',
-              name: this.name
-            };
-            const response = await searchEvents(query);
-            this.events = response;
-          } catch (error) {
-            toast.error('Error searching events', error)
-          }
-        }
-        // if user searches by event date
-      } else if (this.searchBy === 'Event Date') {
-        if (this.eventDate) {
-          try {
-            const eventDate = new Date(this.eventDate);
-            const formattedDate = eventDate.toISOString().substring(0, 10);
-            const query = {
-              searchBy: 'date',
-              eventDate: formattedDate
-            };
-            const response = await searchEvents(query);
-            this.events = response;
-          } catch (error) {
-            toast.error('Error searching events:', error)
-          }
-        }
-      }
-    },
-
-    // method called for each event date so it will be formatted correctly on the table
-    formatDate(date) {
-      const isoDate = new Date(date);
-      const year = isoDate.getUTCFullYear();
-      const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(isoDate.getUTCDate()).padStart(2, '0');
-      return `${month}/${day}/${year}`;
-    },
-  },
+// method called for each event date so it will be formatted correctly on the table
+function formatDate(date) {
+  const isoDate = new Date(date);
+  const year = isoDate.getUTCFullYear();
+  const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(isoDate.getUTCDate()).padStart(2, '0');
+  return `${month}/${day}/${year}`;
 }
+
+// sorting uses the raw date field, render just makes it look nice
+const columns = [
+  { label: 'Event Name', field: 'name' },
+  { label: 'Event Date', field: 'date', render: (e) => formatDate(e.date) },
+  { label: 'Event Address', field: 'address.line1' }
+]
+
+// resets the search and loads all events
+function loadData() {
+  searchBy.value = null
+  name.value = null
+  eventDate.value = null
+  execute()
+}
+
+// method called when user searches for an event
+function handleSubmitForm() {
+  if (searchBy.value === 'Event Name' && name.value) {
+    execute({ searchBy: 'name', name: name.value })
+  } else if (searchBy.value === 'Event Date' && eventDate.value) {
+    execute({ searchBy: 'date', eventDate: new Date(eventDate.value).toISOString().substring(0, 10) })
+  }
+}
+
+onMounted(loadData)
 </script>
