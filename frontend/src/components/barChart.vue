@@ -4,31 +4,34 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { Colors } from 'chart.js';
 
 Chart.register(...registerables)
 Chart.register(Colors);
 
-export default {
-  props: {
-    label: {
-      type: Array
-    },
-    chartData: {
-      type: Array
-    }
+const props = defineProps({
+  label: {
+    type: Array
   },
-  async mounted() {
-    await new Chart(this.$refs.attendanceChart, {
+  chartData: {
+    type: Array
+  }
+})
+
+const attendanceChart = ref(null)
+
+onMounted(() => {
+  new Chart(attendanceChart.value, {
       type: 'bar',
       data: {
-        labels: this.label,
+        labels: props.label,
         datasets: [
           {
             borderWidth: 1,
-            data: this.chartData
+            data: props.chartData
           }
         ]
       },
@@ -58,7 +61,6 @@ export default {
         maintainAspectRatio: true
       }
     })
-  }
-}
+})
 </script>
 

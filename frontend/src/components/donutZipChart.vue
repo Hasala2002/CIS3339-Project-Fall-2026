@@ -4,28 +4,31 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted } from 'vue'
 import { Chart, registerables } from 'chart.js'
 Chart.register(...registerables)
 //define props (label and chartData)
-export default {
-  props: {
-    label: {
-      type: Array
-    },
-    chartData: {
-      type: Array
-    }
+const props = defineProps({
+  label: {
+    type: Array
   },
-  async mounted() { //uses the data to load the chart's values
-    await new Chart(this.$refs.zipChart, {
+  chartData: {
+    type: Array
+  }
+})
+
+const zipChart = ref(null)
+
+onMounted(() => { //uses the data to load the chart's values
+  new Chart(zipChart.value, {
       type: 'doughnut',
       data: {
-        labels: this.label,
+        labels: props.label,
         datasets: [
           {
             borderWidth: 1,
-            data: this.chartData // Update this line
+            data: props.chartData
           }
         ]
       },
@@ -43,6 +46,5 @@ export default {
         maintainAspectRatio: true
       }
     })
-  },
-}
+})
 </script>

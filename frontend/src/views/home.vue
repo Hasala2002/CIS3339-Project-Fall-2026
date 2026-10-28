@@ -13,7 +13,12 @@
               Events Attendance
           </h1>
       
-          <div v-if="!recentEvents.length" class="flex justify-center mt-10">No events found.</div>
+          <p v-if="loading" class="flex justify-center mt-10 text-gray-500 animate-pulse">Loading attendance...</p>
+          <div v-else-if="error" class="mt-10 p-4 bg-red-50 text-red-900">
+            <p class="font-bold">Couldn't load attendance: {{ error }}</p>
+            <button class="mt-2 bg-red-700 text-white rounded" @click="loadAttendance()">Retry</button>
+          </div>
+          <div v-else-if="!recentEvents.length" class="flex justify-center mt-10">No events found.</div>
           <table v-if="recentEvents.length" class="min-w-full shadow-md rounded">
             <thead class="bg-gray-50 text-xl">
               <tr class="p-4 text-left">
@@ -24,7 +29,6 @@
             </thead>
             <tbody class="divide-y divide-gray-300"> 
               <tr
-                @click="editEvent(event._id)"
                 v-for="event in recentEvents"
                 :key="event._id"
               >
@@ -36,32 +40,7 @@
           </table>
           
           <div v-if="recentEvents.length">
-            <AttendanceChart
-              v-if="!loading && !error"
-              :label="labels"
-              :chart-data="chartData"
-            ></AttendanceChart>
-
-            <!-- Start of loading animation -->
-            <div class="mt-40" v-if="loading">
-              <p
-                class="text-6xl font-bold text-center text-gray-500 animate-pulse"
-              >
-                Loading...
-              </p>
-            </div>
-            <!-- End of loading animation -->
-
-            <!-- Start of error alert -->
-            <div class="mt-12 bg-red-50" v-if="error">
-              <h3 class="px-4 py-1 text-4xl font-bold text-white bg-red-800">
-                {{ error.title }}
-              </h3>
-              <p class="p-4 text-lg font-bold text-red-900">
-                {{ error.message }}
-              </p>
-            </div>
-            <!-- End of error alert -->
+            <AttendanceChart :label="labels" :chart-data="chartData"></AttendanceChart>
           </div>
         </div>
       </div>
@@ -72,7 +51,12 @@
               Clients by Zip Code
           </h1>
           
-          <div v-if="!zips.length" class="flex justify-center mt-10">No clients found.</div>
+          <p v-if="zipLoading" class="flex justify-center mt-10 text-gray-500 animate-pulse">Loading zip codes...</p>
+          <div v-else-if="zipError" class="mt-10 p-4 bg-red-50 text-red-900">
+            <p class="font-bold">Couldn't load clients by zip: {{ zipError }}</p>
+            <button class="mt-2 bg-red-700 text-white rounded" @click="loadZips()">Retry</button>
+          </div>
+          <div v-else-if="!zips.length" class="flex justify-center mt-10">No clients found.</div>
           <table v-if="zips.length" class="min-w-full shadow-md rounded">
             <thead class="bg-gray-50 text-xl">
               <tr class="p-4 text-left">
@@ -91,32 +75,7 @@
             </tbody>
           </table>
           <div v-if="zips.length" class="flex justify-center mt-10">
-            <ZipChart
-              v-if="!zipLoading && !zipError"
-              :label="zipLabels"
-              :chart-data="zipChartData"
-            ></ZipChart>
-
-            <!-- Start of loading animation -->
-            <div class="mt-40" v-if="zipLoading">
-              <p
-                class="text-6xl font-bold text-center text-gray-500 animate-pulse"
-              >
-                Loading...
-              </p>
-            </div>
-            <!-- End of loading animation -->
-
-            <!-- Start of error alert -->
-            <div class="mt-12 bg-red-50" v-if="zipError">
-              <h3 class="px-4 py-1 text-4xl font-bold text-white bg-red-800">
-                {{ zipError.title }}
-              </h3>
-              <p class="p-4 text-lg font-bold text-red-900">
-                {{ zipError.message }}
-              </p>
-            </div>
-            <!-- End of error alert -->
+            <ZipChart :label="zipLabels" :chart-data="zipChartData"></ZipChart>
           </div>
         </div>
       </div>
@@ -124,109 +83,36 @@
   </main>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted } from 'vue'
 import AttendanceChart from '../components/barChart.vue'
 import ZipChart from '../components/donutZipChart.vue'
 import { getAttendance, getClientsByZipCode } from '../api/api'
+import { useApi } from '../composables/useApi'
 
-export default {
-  components: {
-    AttendanceChart,
-    ZipChart,
-  },
-  data() {
-    return {
-      recentEvents: [],
-      zips: [],
-      labels: [],
-      chartData: [],
-      zipLabels: [],
-      zipChartData: [],
-      loading: false,
-      error: null,
-      zipLoading: false,
-      zipError: null
-    }
-  },
-  mounted() {
-    this.getAttendanceData()
-    this.getZipData()
-  },
-  methods: {
-    async getAttendanceData() {
-      try {
-        this.error = null
-        this.loading = true
-        
-        const attendance = await getAttendance();
-        this.recentEvents = attendance;
-        this.labels = attendance.map(
-          (item) => `${item.name} (${this.formatDate(item.date)})`
-        )
-        this.chartData = attendance.map((item) => item.attendees.length)
-      } catch (err) {
-        if (err.response) {
-          // client received an error response (5xx, 4xx)
-          this.error = {
-            title: 'Server Response',
-            message: err.message
-          }
-        } else if (err.request) {
-          // client never received a response, or request never left
-          this.error = {
-            title: 'Unable to Reach Server',
-            message: err.message
-          }
-        } else {
-          // There's probably an error in your code
-          this.error = {
-            title: 'Application Error',
-            message: err.message
-          }
-        }
-      }
-      this.loading = false
-    },
-    async getZipData() {
-      try {
-        this.zipError = null
-        this.zipLoading = true
-        
-        const zipdata = await getClientsByZipCode();
-        this.zips = zipdata;
-        this.zipLabels = zipdata.map((item) => item._id)
-        this.zipChartData = zipdata.map((item) => item.count)
-      } catch (err) {
-        if (err.response) {
-          // client received an error response (5xx, 4xx)
-          this.zipError = {
-            title: 'Server Response',
-            message: err.message
-          }
-        } else if (err.request) {
-          // client never received a response, or request never left
-          this.zipError = {
-            title: 'Unable to Reach Server',
-            message: err.message
-          }
-        } else {
-          // There's probably an error in your code
-          this.zipError = {
-            title: 'Application Error',
-            message: err.message
-          }
-        }
-      }
-      this.zipLoading = false
-    },
-    // method called to format the event date
-    formatDate(date) {
-      const isoDate = new Date(date);
-      const year = isoDate.getUTCFullYear();
-      const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(isoDate.getUTCDate()).padStart(2, '0');
-      return `${month}/${day}/${year}`;
-    },
-  }
+const { data: attendance, loading, error, execute: loadAttendance } = useApi(() => getAttendance())
+const { data: zipData, loading: zipLoading, error: zipError, execute: loadZips } = useApi(() => getClientsByZipCode())
+
+// method called to format the event date
+function formatDate(date) {
+  const isoDate = new Date(date);
+  const year = isoDate.getUTCFullYear();
+  const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(isoDate.getUTCDate()).padStart(2, '0');
+  return `${month}/${day}/${year}`;
 }
+
+// chart data gets built off whatever the api returned
+const recentEvents = computed(() => attendance.value || [])
+const labels = computed(() => recentEvents.value.map((item) => `${item.name} (${formatDate(item.date)})`))
+const chartData = computed(() => recentEvents.value.map((item) => item.attendees.length))
+
+const zips = computed(() => zipData.value || [])
+const zipLabels = computed(() => zips.value.map((item) => item._id))
+const zipChartData = computed(() => zips.value.map((item) => item.count))
+
+onMounted(() => {
+  loadAttendance()
+  loadZips()
+})
 </script>
