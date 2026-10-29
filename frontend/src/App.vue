@@ -5,7 +5,7 @@
     <div id="_container" class="min-h-screen">
       <header class="w-full">
         <section class="text-center">
-          <img class="m-auto" src="@\assets\DanPersona.svg" />
+          <img class="m-auto" src="@/assets/DanPersona.svg" />
         </section>
         <!--Navigation bar-->
         <nav class="mt-10">

@@ -1,7 +1,7 @@
 // This pinia store contains state with respect to whether a user is logged in 
 import { defineStore } from 'pinia'
 import { useToast } from 'vue-toastification'
-import { loginUser, logoutUser } from '../api/api' // import API calls
+import { loginUser, logoutUser, setAuthHeader } from '../api/api' // import API calls
 import jwt_decode from 'jwt-decode'; // import JSON Web Token decoder to decode the token into the user's information
 
 //Notifications
@@ -18,6 +18,26 @@ export const useLoggedInUserStore = defineStore({
     }
   },
   actions: {
+    // runs on app start so a refresh doesn't log the user out
+    restoreSession() {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+      try {
+        const decodedToken = jwt_decode(token);
+        // exp is in seconds
+        if (decodedToken.exp * 1000 <= Date.now()) throw new Error('expired');
+        setAuthHeader(token);
+        this.$patch({
+          isLoggedIn: true,
+          role: decodedToken.role,
+          name: decodedToken.name
+        });
+      } catch {
+        // expired or corrupted, start logged out
+        logoutUser();
+        this.$reset();
+      }
+    },
     async login(username, password) {
       try {
         const token = await loginUser(username, password);

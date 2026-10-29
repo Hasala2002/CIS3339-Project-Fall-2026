@@ -14,7 +14,7 @@ const apiClient = axios.create({
 
 // Login related API calls
 // If user logs in successfully, this login sets a header to "apiClient" called "Authorization" with the value of "Bearer <token>" This security token is used to validate API calls
-function setAuthHeader(token) {
+export function setAuthHeader(token) {
   apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 }
 
@@ -37,11 +37,13 @@ apiClient.interceptors.response.use(
       useLoggedInUserStore().$reset();
       router.push("/login");
     }
-    // server sends either a plain string, { message }, or { errors: [{ msg }] }
+    // server sends { error } (the agreed shape), or the older plain string / { message } / { errors: [{ msg }] }
     const message =
+      data?.error ||
       data?.errors?.[0]?.msg ||
       data?.message ||
       (typeof data === "string" && data) ||
+      (status === 403 && "You don't have permission to do that") ||
       "Something went wrong";
     return Promise.reject(new Error(message));
   }
@@ -136,6 +138,12 @@ export const updateEvent = async (id, eventData) => {
   const response = await apiClient.put(`/events/update/${id}`, eventData);
   return response.data;
 };
+
+// agreed B1 contract: the first call returns the created/removed record, repeats return
+// { message: "Already registered" } / { message: "Not registered" }.
+// the template backend still sends plain strings, so this takes either one - delete the string case once B1 lands
+export const registrationMessage = (data, fallback) =>
+  data?.message || (typeof data === "string" ? data : fallback);
 
 // API call to PUT add attendee to event
 export const registerAttendee = async (eventId, clientId) => {

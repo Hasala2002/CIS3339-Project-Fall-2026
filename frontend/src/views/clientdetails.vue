@@ -204,7 +204,8 @@
               <td class="p-2 text-right">
                 <span class="remove-btn-wrapper">
                   <span class="remove-btn text-gray-400 cursor-pointer"
-                    @click.stop="removeClientFromEvent(client._id, event._id)" v-if="hoverId === event._id">X</span>
+                    @click.stop="removeClientFromEvent(client._id, event._id)"
+                    v-if="hoverId === event._id && user.role === 'editor'">X</span>
                 </span>
               </td>
             </tr>
@@ -238,7 +239,7 @@ import useVuelidate from '@vuelidate/core'
 import { required, email, numeric, minLength, maxLength } from '@vuelidate/validators'
 import VueMultiselect from 'vue-multiselect'
 import { useLoggedInUserStore } from "../store/loggedInUser";
-import { getClientById, getClientEvents, getNonClientEvents, registerAttendee, deregisterAttendee, updateClient, deleteClientbyId } from '../api/api'
+import { getClientById, getClientEvents, getNonClientEvents, registerAttendee, deregisterAttendee, registrationMessage, updateClient, deleteClientbyId } from '../api/api'
 import { useToast } from 'vue-toastification'
 
 //Notifications
@@ -336,7 +337,7 @@ async function refreshEvents() {
 async function removeClientFromEvent(clientId, eventId) {
   try {
     const response = await deregisterAttendee(eventId, clientId);
-    toast.success(response)
+    toast.success(registrationMessage(response, 'Client removed from event'))
     await refreshEvents()
   } catch (error) {
     toast.error(error.message);
@@ -346,7 +347,9 @@ async function removeClientFromEvent(clientId, eventId) {
 // method called to add client to an event
 async function addClientToEvent() {
   try {
-    await Promise.all(eventsSelected.value.map((event) => registerAttendee(event._id, client.value._id)))
+    const results = await Promise.all(eventsSelected.value.map((event) => registerAttendee(event._id, client.value._id)))
+    // "Already registered" comes back as a normal 200, so tell the user instead of silently skipping it
+    results.forEach((response) => toast.info(registrationMessage(response, 'Client added to event')))
     await refreshEvents()
     eventsSelected.value = [];
   } catch (error) {
