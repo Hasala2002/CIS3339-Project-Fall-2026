@@ -76,7 +76,7 @@
           </div>
           <!--Go back button-->
           <div class="flex justify-between mt-20 mr-20">
-            <button type="reset" class="border border-red-700 bg-white text-red-700 rounded" @click="this.$router.back()">
+            <button type="reset" class="border border-red-700 bg-white text-red-700 rounded" @click="$router.back()">
               Go back
             </button>
           </div>
@@ -116,7 +116,9 @@
   </main>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import useVuelidate from '@vuelidate/core'
 import { required } from '@vuelidate/validators'
 import { useLoggedInUserStore } from "../store/loggedInUser";
@@ -125,95 +127,79 @@ import { useToast } from 'vue-toastification'
 
 //Notifications
 const toast = useToast()
+const route = useRoute()
+const router = useRouter()
+const user = useLoggedInUserStore()
 
-export default {
-  data() {
-    return {
-      //variable to store service information
-      service: {
-        name: null,
-        description: null,
-        status: null
-      },
-      // all events that host the service
-      events: [],
-      // variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-      hoverId: null,
-    }
-  },
-  setup() {
-    // register Vuelidate and loggedIn store
-    const v$ = useVuelidate();
-    const user = useLoggedInUserStore();
-    return { v$, user };
-  },
-  validations() {
-    // validations      
-    return {
-      service: {
-        name: { required },
-      },
-    };
-  },
-  async mounted() {
-    // when component is mounted, data is loaded
-    try {
-      const [serviceResponse, eventsResponse] = await Promise.all([
-        getServiceById(this.$route.params.id),
-        getEventsByServiceId(this.$route.params.id),
-      ]);
+//variable to store service information
+const service = ref({
+  name: null,
+  description: null,
+  status: null
+})
+// all events that host the service
+const events = ref([])
+// variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
+const hoverId = ref(null)
 
-      this.service = serviceResponse;
-      this.events = eventsResponse;
+// validations
+const v$ = useVuelidate({ service: { name: { required } } }, { service })
 
-    } catch (error) {
-      toast.error(error);
-    }
-  },
-  methods: {
-    // method to format the event dates
-    formatDate(date) {
-      const isoDate = new Date(date);
-      const year = isoDate.getUTCFullYear();
-      const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(isoDate.getUTCDate()).padStart(2, '0');
-      return `${month}/${day}/${year}`;
-    },
+onMounted(async () => {
+  // when component is mounted, data is loaded
+  try {
+    const [serviceResponse, eventsResponse] = await Promise.all([
+      getServiceById(route.params.id),
+      getEventsByServiceId(route.params.id),
+    ]);
 
-    // method called when user attempts to update the service
-    async submitServiceUpdate() {
-      // Trigger validation
-      this.v$.$validate();
+    service.value = serviceResponse;
+    events.value = eventsResponse;
+  } catch (error) {
+    toast.error(error.message);
+  }
+})
 
-      if (this.v$.$error) {
-        // Form is invalid, do not proceed
-        return;
-      }
+// method to format the event dates
+function formatDate(date) {
+  const isoDate = new Date(date);
+  const year = isoDate.getUTCFullYear();
+  const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(isoDate.getUTCDate()).padStart(2, '0');
+  return `${month}/${day}/${year}`;
+}
 
-      try {
-        const response = await updateService(this.$route.params.id, this.service);
-        this.$router.push('/findservice')
-        toast.success(response)
-      } catch (error) {
-        toast.error('error updating service', error)
-      }
-    },
+// method called when user attempts to update the service
+async function submitServiceUpdate() {
+  // Trigger validation
+  await v$.value.$validate();
 
-    // method to make the API call to delete the service - can only be deleted service is not used in any event
-    async submitDeleteService() {
-      try {
-        if (this.events.length != 0)
-        {
-          toast.info('Service can not be deleted since it is being used by events.')
-          return
-        }
-        const response = await deleteService(this.$route.params.id);
-        toast.success(response)
-        this.$router.push('/findservice')
-      } catch (error) {
-        toast.error(error)
-      }
-    },
+  if (v$.value.$error) {
+    // Form is invalid, do not proceed
+    return;
+  }
+
+  try {
+    const response = await updateService(route.params.id, service.value);
+    router.push('/findservice')
+    toast.success(response)
+  } catch (error) {
+    toast.error(error.message)
+  }
+}
+
+// method to make the API call to delete the service - can only be deleted service is not used in any event
+async function submitDeleteService() {
+  if (events.value.length) {
+    toast.info('Service can not be deleted since it is being used by events.')
+    return
+  }
+  try {
+    const response = await deleteService(route.params.id);
+    toast.success(response)
+    router.push('/findservice')
+  } catch (error) {
+    toast.error(error.message)
   }
 }
 </script>
