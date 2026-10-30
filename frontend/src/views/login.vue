@@ -32,6 +32,7 @@
 </template>
 
 <script setup>
+// migrated to composition api: data -> ref, setup() -> top level
 import { ref } from 'vue'
 import { useLoggedInUserStore } from "../store/loggedInUser";
 

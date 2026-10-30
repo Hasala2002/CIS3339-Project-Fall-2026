@@ -74,6 +74,7 @@
 </template>
 
 <script setup>
+// migrated to composition api: data -> ref, methods -> functions, mounted -> onMounted, this.$router -> useRouter, table -> DataTable
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getServices, searchServices } from '../api/api'

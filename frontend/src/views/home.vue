@@ -84,6 +84,7 @@
 </template>
 
 <script setup>
+// migrated to composition api: data/methods -> useApi + computed, mounted -> onMounted
 import { computed, onMounted } from 'vue'
 import AttendanceChart from '../components/barChart.vue'
 import ZipChart from '../components/donutZipChart.vue'

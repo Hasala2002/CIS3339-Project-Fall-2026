@@ -77,6 +77,7 @@
 </template>
 
 <script setup>
+// migrated to composition api: data -> ref, validations() -> rules for useVuelidate, methods -> functions, this.$router -> useRouter
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 // import vuelidate validations

@@ -90,6 +90,7 @@
 </template>
 
 <script setup>
+// migrated to composition api: data -> ref, created hook -> plain call at the top, setup() -> top level. dropped the old logout method since the store already handles it
 import { ref } from 'vue'
 import { useLoggedInUserStore } from './store/loggedInUser'
 import { getOrgName } from './api/api'

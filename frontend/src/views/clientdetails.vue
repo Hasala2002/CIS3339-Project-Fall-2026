@@ -233,6 +233,7 @@
 </template>
 
 <script setup>
+// migrated to composition api: data -> ref, validations() -> rules for useVuelidate, mounted -> onMounted, methods -> functions, this.$route/$router -> useRoute/useRouter
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import useVuelidate from '@vuelidate/core'

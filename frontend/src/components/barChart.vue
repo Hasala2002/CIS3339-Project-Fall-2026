@@ -5,6 +5,7 @@
 </template>
 
 <script setup>
+// migrated to composition api: props -> defineProps, mounted -> onMounted, this.$refs -> template ref
 import { ref, onMounted } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { Colors } from 'chart.js';

@@ -155,6 +155,7 @@
 </template>
 
 <script setup>
+// migrated to composition api: data -> ref, validations() -> rules for useVuelidate, mounted -> onMounted, methods -> functions, this.$router -> useRouter
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 // import vuelidate validations

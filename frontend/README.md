@@ -17,7 +17,11 @@ Setup a .env file with following variables, e.g.:
     VITE_ROOT_API=http://localhost:3000
 
 VITE_ROOT_API is the URL for the backend API, either on localhost or in the cloud.
-`frontend/.env` is committed so graders can run the app without extra setup. It only holds the backend URL (nothing secret), so change it if your backend isn't on port 3000.
+`.env` isn't committed (it's gitignored and gets uploaded through Canvas). Copy the example and edit it if your backend isn't on port 3000:
+
+    cp .env.example .env
+
+It only holds the backend URL, and since Vite bakes `VITE_` variables into the built JavaScript it should never contain anything secret.
 
 ### Compiles and hot-reloads for development
 
