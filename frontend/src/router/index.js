@@ -5,6 +5,8 @@ import { useLoggedInUserStore } from '../store/loggedInUser'
 const routes = [
   {
     path: '/',
+    // the dashboard data needs a login now
+    meta: { requiresAuth: true },
     component: () => import('../views/home.vue')
   },
   {

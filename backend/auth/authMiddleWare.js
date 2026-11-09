@@ -1,25 +1,37 @@
-// Authroization middleware. It is used to check if API calls have a valid authorization token. This is to protect API endpoints against unauthorized calls.
+// Authorization middleware. requireAuth checks the JWT on every protected call, requireRole checks what the logged in user is allowed to do.
 
 // import Node.js module for verifying JWTs (JSON Web Tokens)
 const jwt = require('jsonwebtoken');
 
-module.exports = function (req, res, next) {
+// rejects with 401 if there's no valid token, otherwise puts the decoded user (name, role, orgId) on req.user
+const requireAuth = (req, res, next) => {
   // Read the header of API calls called "Authorization", then split the token from that header
   const token =
     req.header('Authorization') && req.header('Authorization').split(' ')[1];
 
-  // if there is no "Authorization" header, or no token in that header, then authorization is denied and no API call is made
   if (!token) {
-    return res.status(401).json({ message: 'No token, authorization denied' });
+    return res.status(401).json({ error: 'No token, authorization denied' });
   }
 
-  // if there is an "Authorization" header and the token is valid, then the token will be verified and decoded to contain the user's information, such as their username and role. The API call will then proceed.
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // tokens from before orgId was added can't be scoped to an org, so make them log in again
+    if (!decoded.orgId) {
+      return res.status(401).json({ error: 'Token is not valid' });
+    }
     req.user = decoded;
     next();
-    // if the token is not valid, then the API call will not be made.
   } catch (err) {
-    res.status(401).json({ message: 'Token is not valid' });
+    res.status(401).json({ error: 'Token is not valid' });
   }
 };
+
+// use after requireAuth. rejects with 403 if the logged in user doesn't have the role, e.g. requireRole('editor')
+const requireRole = (role) => (req, res, next) => {
+  if (req.user.role !== role) {
+    return res.status(403).json({ error: 'You do not have permission to do that' });
+  }
+  next();
+};
+
+module.exports = { requireAuth, requireRole };

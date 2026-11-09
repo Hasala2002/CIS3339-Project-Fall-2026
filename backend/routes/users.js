@@ -17,18 +17,17 @@ router.post('/login', async (req, res) => {
 
   try {
     const user = await users.findOne({ username: username, org: org });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid username' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
+    // same message for a bad username and a bad password so nobody can tell which usernames exist
+    const isMatch = user && (await bcrypt.compare(password, user.password));
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid username or password' });
     }
 
+    // orgId rides along in the token so every route can scope its queries to the user's org
     const payload = {
       name: user.name,
-      role: user.role
+      role: user.role,
+      orgId: user.org
     };
 
     // token expires in 30 days. This is not best security practice but still demonstrates how JWT work

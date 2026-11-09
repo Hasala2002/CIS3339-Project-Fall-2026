@@ -9,13 +9,22 @@ const cors = require('cors');
 // allow using a .env file
 require('dotenv').config(); //require the dotenv
 
+// don't start with a half empty config, say what's missing instead
+const missing = ['MONGO_URL', 'ORG_ID', 'JWT_SECRET', 'CORS_ORIGIN'].filter(
+  (name) => !process.env[name]
+);
+if (missing.length) {
+  console.error(`Missing ${missing.join(', ')}, check your backend/.env`);
+  process.exit(1);
+}
+
 // creates a new instance of express application
 const app = express();
 
-// add cors header to the server
+// only the frontend we configured is allowed to call the api from a browser
 app.use(
   cors({
-    origin: '*'
+    origin: process.env.CORS_ORIGIN
   })
 );
 

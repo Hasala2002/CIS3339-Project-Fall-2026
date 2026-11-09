@@ -48,7 +48,10 @@ MONGO_URL=mongodb://localhost:27018/cis3339
 PORT=3000
 ORG_ID=64e0380b3cc28d087655693b
 JWT_SECRET=any-random-string-you-like
+CORS_ORIGIN=http://localhost:5173
 ```
+
+`CORS_ORIGIN` has to match the address the frontend is served from (the backend only accepts calls from that one origin) and the backend won't start without it.
 
 Then load the demo data and start the server:
 
