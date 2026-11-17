@@ -139,11 +139,9 @@ export const updateEvent = async (id, eventData) => {
   return response.data;
 };
 
-// agreed B1 contract: the first call returns the created/removed record, repeats return
-// { message: "Already registered" } / { message: "Not registered" }.
-// the template backend still sends plain strings, so this takes either one - delete the string case once B1 lands
-export const registrationMessage = (data, fallback) =>
-  data?.message || (typeof data === "string" ? data : fallback);
+// register/deregister send the record on the first call and { message: "Already registered" } /
+// { message: "Not registered" } on repeats, so show the message when there is one
+export const registrationMessage = (data, fallback) => data?.message || fallback;
 
 // API call to PUT add attendee to event
 export const registerAttendee = async (eventId, clientId) => {

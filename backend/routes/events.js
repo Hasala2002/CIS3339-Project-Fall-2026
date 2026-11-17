@@ -151,58 +151,50 @@ router.put("/update/:id", requireAuth, requireRole("editor"), (req, res, next) =
   );
 });
 
+// both the event and the client have to exist in the user's org, otherwise register/deregister send a 404
+const findBoth = (req) =>
+  Promise.all([
+    events.findOne(withOrg({ _id: req.query.event }, req)),
+    clients.findOne(withOrg({ _id: req.query.client }, req, "orgs")),
+  ]);
+
 // API endpoint to PUT -> add attendee to event
-router.put("/register", requireAuth, requireRole("editor"), (req, res, next) => {
-  events.find(
-    withOrg({ _id: req.query.event, attendees: req.query.client }, req),
-    (error, data) => {
-      if (error) {
-        return next(error);
-      } else {
-        // only add attendee if not yet signed up
-        if (!data.length) {
-          events.findOneAndUpdate(
-            withOrg({ _id: req.query.event }, req),
-            { $push: { attendees: req.query.client } },
-            (error, data) => {
-              if (error) {
-                return next(error);
-              } else {
-                res.status(200).send("Client added to event");
-              }
-            }
-          );
-        } else {
-          res.status(400).send("Client already added to event");
-        }
-      }
+router.put("/register", requireAuth, requireRole("editor"), async (req, res, next) => {
+  try {
+    const { event, client } = req.query;
+    const [foundEvent, foundClient] = await findBoth(req);
+    if (!foundEvent || !foundClient) {
+      return res.status(404).json({ error: !foundEvent ? "Event not found" : "Client not found" });
     }
-  );
+    // the filter skips events that already have this client, so two quick calls can't make a duplicate
+    const added = await events.findOneAndUpdate(
+      withOrg({ _id: event, attendees: { $ne: client } }, req),
+      { $addToSet: { attendees: client } }
+    );
+    if (!added) return res.json({ message: "Already registered" });
+    res.json({ event, client });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // API endpoint to PUT -> remove attendee from event
-router.put("/deregister", requireAuth, requireRole("editor"), (req, res, next) => {
-  events.findOneAndUpdate(
-    withOrg({ _id: req.query.event }, req),
-    { $pull: { attendees: req.query.client } },
-    (error, data) => {
-      if (error) {
-        return next(error);
-      } else {
-        clients.findOneAndUpdate(
-          withOrg({ _id: req.query.client }, req, "orgs"),
-          { $pull: { events: req.query.event } },
-          (error, data) => {
-            if (error) {
-              return next(error);
-            } else {
-              res.send("Client deregistered with event");
-            }
-          }
-        );
-      }
+router.put("/deregister", requireAuth, requireRole("editor"), async (req, res, next) => {
+  try {
+    const { event, client } = req.query;
+    const [foundEvent, foundClient] = await findBoth(req);
+    if (!foundEvent || !foundClient) {
+      return res.status(404).json({ error: !foundEvent ? "Event not found" : "Client not found" });
     }
-  );
+    const removed = await events.findOneAndUpdate(
+      withOrg({ _id: event, attendees: client }, req),
+      { $pull: { attendees: client } }
+    );
+    if (!removed) return res.json({ message: "Not registered" });
+    res.json({ event, client });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // API endpoint to hard DELETE event by ID
