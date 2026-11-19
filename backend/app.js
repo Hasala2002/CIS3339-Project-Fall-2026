@@ -4,6 +4,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const morgan = require('morgan');
+const { notFound, errorHandler } = require('./errors');
 
 const cors = require('cors');
 // allow using a .env file
@@ -48,6 +49,14 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(morgan('dev'));
 
+// no login needed, handy for checking a deployment is alive
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
 // setup middle ware for routes
 app.use('/clients', require('./routes/clients'));
 app.use('/events', require('./routes/events'));
@@ -55,16 +64,10 @@ app.use('/org', require('./routes/org'));
 app.use('/services', require('./routes/services'));
 app.use('/users', require('./routes/users'));
 
+// these two have to come after every route
+app.use(notFound);
+app.use(errorHandler);
+
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
-});
-
-// error handler
-app.use(function (err, req, res, next) {
-  // logs error and error code to console
-  console.error(err.message, req);
-  if (!err.statusCode) {
-    err.statusCode = 500;
-  }
-  res.status(err.statusCode).send(err.message);
 });

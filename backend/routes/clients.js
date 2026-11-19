@@ -7,17 +7,18 @@ const router = express.Router();
 // Middleware for authorization. requireAuth checks the token, requireRole('editor') blocks viewers from changing data.
 const { requireAuth, requireRole } = require('../auth/authMiddleWare');
 const { withOrg, stripOrg, escapeRegex } = require('../helpers');
+const { HttpError } = require('../errors');
 
 // importing data model schemas
 const { clients, events } = require('../models/models');
 
 // API Endpoint to Get all clients
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const cli = await clients.find(withOrg({}, req, 'orgs'));
     res.json(cli);
   } catch (err) {
-    res.status(500).send(err.message);
+    next(err);
   }
 });
 
@@ -27,7 +28,7 @@ router.get('/id/:id', requireAuth, (req, res, next) => {
     if (error) {
       return next(error);
     } else if (!data) {
-      res.status(400).send('Client not found');
+      next(new HttpError(404, 'Client not found'));
     } else {
       res.json(data);
     }
@@ -70,7 +71,7 @@ router.get('/search', requireAuth, (req, res, next) => {
       }
       break;
     default:
-      return res.status(400).send("invalid searchBy");
+      return next(new HttpError(400, 'Invalid searchBy'));
   }
 
   dbQuery["$and"] = queryArray;
@@ -98,12 +99,12 @@ router.post('/', requireAuth, requireRole('editor'), (req, res, next) => {
 
 // API endpoint to PUT update client
 router.put("/update/:id", requireAuth, requireRole('editor'), (req, res, next) => {
-  clients.findOneAndUpdate(withOrg({ _id: req.params.id }, req, 'orgs'), stripOrg(req.body), (error, data) => {
+  clients.findOneAndUpdate(withOrg({ _id: req.params.id }, req, 'orgs'), stripOrg(req.body), { runValidators: true }, (error, data) => {
     if (error) {
       return next(error);
     } else {
       if (!data)
-        res.status(400).send("Client not found.")
+        next(new HttpError(404, 'Client not found'))
       else
         res.status(201).send("Client updated successfully");
     }
@@ -116,7 +117,7 @@ router.delete("/:id", requireAuth, requireRole('editor'), (req, res, next) => {
     if (error) {
       return next(error);
     } else if (!data) {
-      res.status(400).send("Client not found");
+      next(new HttpError(404, 'Client not found'));
     } else {
       events.find(withOrg({ attendees: req.params.id }, req), (error, data) => {
         if (error) {
@@ -128,13 +129,13 @@ router.delete("/:id", requireAuth, requireRole('editor'), (req, res, next) => {
               if (error) {
                 return next(error);
               } else if (!data) {
-                res.status(400).send('Client not found');
+                next(new HttpError(404, 'Client not found'));
               } else {
                 res.status(200).send("Client deleted successfully");
               }
             });
           else 
-            res.status(406).send("Client is signed up for events and can't be deleted.");
+            next(new HttpError(409, "Client is signed up for events and can't be deleted."));
         }
       });
     }

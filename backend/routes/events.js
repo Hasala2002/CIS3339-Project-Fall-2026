@@ -5,6 +5,7 @@ const router = express.Router();
 // Middleware for authorization. requireAuth checks the token, requireRole('editor') blocks viewers from changing data.
 const { requireAuth, requireRole } = require("../auth/authMiddleWare");
 const { withOrg, stripOrg, escapeRegex } = require("../helpers");
+const { HttpError } = require("../errors");
 
 // importing data model schemas
 const { events, clients } = require("../models/models");
@@ -29,7 +30,7 @@ router.get("/id/:id", requireAuth, (req, res, next) => {
     if (error) {
       return next(error);
     } else if (!data) {
-      res.status(400).send("Event not found");
+      next(new HttpError(404, 'Event not found'));
     } else {
       res.json(data);
     }
@@ -48,7 +49,7 @@ router.get("/search/", requireAuth, (req, res, next) => {
       dbQuery.date = req.query.eventDate;
       break;
     default:
-      return res.status(400).send("invalid searchBy");
+      return next(new HttpError(400, 'Invalid searchBy'));
   }
   events.find(dbQuery, (error, data) => {
     if (error) {
@@ -93,7 +94,7 @@ router.get("/attendees/:id", requireAuth, (req, res, next) => {
       return next(error);
     } else {
       if (!event)
-        res.status(400).send("Event not found")
+        next(new HttpError(404, 'Event not found'))
       else {
         const attendeeIds = event.attendees.map((attendee) =>
           attendee.toString()
@@ -141,9 +142,12 @@ router.put("/update/:id", requireAuth, requireRole("editor"), (req, res, next) =
   events.findOneAndUpdate(
     withOrg({ _id: req.params.id }, req),
     stripOrg(req.body),
+    { runValidators: true },
     (error, data) => {
       if (error) {
         return next(error);
+      } else if (!data) {
+        next(new HttpError(404, "Event not found"));
       } else {
         res.status(200).send("Event updated successfully");
       }
@@ -203,7 +207,7 @@ router.delete("/:id", requireAuth, requireRole("editor"), (req, res, next) => {
     if (error) {
       return next(error);
     } else if (!data) {
-      res.status(400).send("Event not found");
+      next(new HttpError(404, 'Event not found'));
     } else {
       // only delete event if no clients are signed up
       if (data.attendees.length === 0) {
@@ -213,14 +217,14 @@ router.delete("/:id", requireAuth, requireRole("editor"), (req, res, next) => {
             if (error) {
               return next(error);
             } else if (!data) {
-              res.status(400).send("Event not found");
+              next(new HttpError(404, 'Event not found'));
             } else {
               res.status(200).send("Event deleted successfully");
             }
           }
         );
       } else {
-        res.status(400).send("Event has attendees and can't be deleted.");
+        next(new HttpError(409, "Event has attendees and can't be deleted."));
       }
     }
   });

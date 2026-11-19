@@ -8,6 +8,7 @@ const { services, events } = require('../models/models');
 // Middleware for authorization. requireAuth checks the token, requireRole('editor') blocks viewers from changing data.
 const { requireAuth, requireRole } = require('../auth/authMiddleWare');
 const { withOrg, stripOrg, escapeRegex } = require('../helpers');
+const { HttpError } = require('../errors');
 
 // API endpoint to all services for org
 router.get('/', requireAuth, (req, res, next) => {
@@ -28,7 +29,7 @@ router.get('/id/:id', requireAuth, (req, res, next) => {
     if (error) {
       return next(error);
     } else if (!data) {
-      res.status(400).send('Service not found');
+      next(new HttpError(404, 'Service not found'));
     } else {
       res.json(data);
     }
@@ -49,7 +50,7 @@ router.get('/search', requireAuth, (req, res, next) => {
       };
       break;
     default:
-      return res.status(400).send('invalid searchBy');
+      return next(new HttpError(400, 'Invalid searchBy'));
   }
   services.find(dbQuery, (error, data) => {
     if (error) {
@@ -75,12 +76,12 @@ router.post('/', requireAuth, requireRole('editor'), (req, res, next) => {
 
 // API endpoint to PUT -> update service
 router.put('/update/:id', requireAuth, requireRole('editor'), (req, res, next) => {
-  services.findOneAndUpdate(withOrg({ _id: req.params.id }, req), stripOrg(req.body), (error, data) => {
+  services.findOneAndUpdate(withOrg({ _id: req.params.id }, req), stripOrg(req.body), { runValidators: true }, (error, data) => {
     if (error) {
       return next(error);
     } else {
       if (!data)
-        res.status(400).send("Service not found.")
+        next(new HttpError(404, 'Service not found'))
       else
         res.status(201).send('Service updated successfully');
     }
@@ -90,20 +91,22 @@ router.put('/update/:id', requireAuth, requireRole('editor'), (req, res, next) =
 // API endpoint to hard DELETE event by ID
 router.delete('/:id', requireAuth, requireRole('editor'), async (req, res, next) => {
   // only delete service if no events are using that service
-  const serviceEvents = await events.find(withOrg({ services: req.params.id }, req))
+  let serviceEvents;
+  try {
+    serviceEvents = await events.find(withOrg({ services: req.params.id }, req));
+  } catch (error) {
+    return next(error);
+  }
 
   if (serviceEvents.length !== 0) {
-    res
-        .status(400)
-        .send('Service can not be deleted since it is being used by events.');
-    return;
+    return next(new HttpError(409, 'Service can not be deleted since it is being used by events.'));
   }
 
   services.findOne(withOrg({ _id: req.params.id }, req), (error, data) => {
     if (error) {
       return next(error);
     } else if (!data) {
-      res.status(400).send('Service not found');
+      next(new HttpError(404, 'Service not found'));
     } else {
       services.findOneAndDelete(
         withOrg({ _id: req.params.id }, req),
@@ -111,7 +114,7 @@ router.delete('/:id', requireAuth, requireRole('editor'), async (req, res, next)
           if (error) {
             return next(error);
           } else if (!data) {
-            res.status(400).send('Service not found');
+            next(new HttpError(404, 'Service not found'));
           } else {
             res.status(200).send('Service deleted successfully');
           }

@@ -8,11 +8,12 @@ const jwt = require('jsonwebtoken');
 
 // import users data model schema
 const { users } = require('../models/models');
+const { HttpError } = require('../errors');
 
 const org = process.env.ORG_ID;
 
 // API endpoint to handle login
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
   const { username, password } = req.body;
 
   try {
@@ -20,7 +21,7 @@ router.post('/login', async (req, res) => {
     // same message for a bad username and a bad password so nobody can tell which usernames exist
     const isMatch = user && (await bcrypt.compare(password, user.password));
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid username or password' });
+      return next(new HttpError(400, 'Invalid username or password'));
     }
 
     // orgId rides along in the token so every route can scope its queries to the user's org
@@ -34,7 +35,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
     res.json({ token });
   } catch (err) {
-    res.status(500).send('Server error');
+    next(err);
   }
 });
 
