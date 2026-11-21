@@ -14,7 +14,7 @@ Copy `.env.example` to `.env` and fill it in. `.env` is gitignored and never com
 
 | Variable | What it does |
 | --- | --- |
-| `MONGO_URL` | MongoDB connection string |
+| `MONGO_URL` | MongoDB connection string. The project uses a MongoDB Atlas cluster (setup is in the root README), a local Docker one works too |
 | `PORT` | port the API listens on (3000 if unset) |
 | `ORG_ID` | id of the organization this instance serves, a 24 character hex string |
 | `JWT_SECRET` | random string used to sign and check login tokens |
@@ -23,6 +23,8 @@ Copy `.env.example` to `.env` and fill it in. `.env` is gitignored and never com
 | `SEED_EDITOR_USERNAME`, `SEED_EDITOR_PASSWORD` | demo editor account `db:init` creates (default `admin` / `admin`) |
 
 The server won't start if `MONGO_URL`, `ORG_ID`, `JWT_SECRET` or `CORS_ORIGIN` is missing.
+
+If an Atlas `mongodb+srv://` string won't connect with `querySrv ECONNREFUSED`, use the standard `mongodb://host1,host2,host3/...` form of it instead. The root README explains both that and the "bad auth" error.
 
 ### Initialize the database
 
