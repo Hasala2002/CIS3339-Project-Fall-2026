@@ -40,7 +40,7 @@ To check the build locally (this is what the demo should run, not `npm run dev`)
 
     npm run serve
 
-then open <http://localhost:4173>. Refreshing a nested page like `/clientdetails/<id>` works here because the preview server falls back to `index.html`.
+then open <http://localhost:5173> (stop `npm run dev` first, they share the port on purpose so the backend's `CORS_ORIGIN` is the same for both). Refreshing a nested page like `/clientdetails/<id>` works here because the preview server falls back to `index.html`.
 
 ### Deploying the static build
 
@@ -58,12 +58,13 @@ The login token is kept in `localStorage`. On a page refresh the app restores th
 
 ## API shapes the frontend expects
 
-- Errors: `{ "error": "message" }` (older plain-text and `{ message }` responses still work). A `401` clears the session and goes to `/login`, a `403` just shows the message.
-- Register an attendee: the created record the first time, `{ "message": "Already registered" }` on repeats.
-- Deregister an attendee: the removed record, or `{ "message": "Not registered" }` if they weren't registered.
-- The current template backend still sends plain strings for register/deregister, and the frontend handles both (see `registrationMessage` in `src/api/api.js`).
+- Errors: `{ "error": "message" }`. A `401` clears the session and goes to `/login`, a `403` just shows the message.
+- Register an attendee: `{ "event", "client" }` the first time, `{ "message": "Already registered" }` on repeats.
+- Deregister an attendee: `{ "event", "client" }`, or `{ "message": "Not registered" }` if they weren't registered.
+- The interceptor in `src/api/api.js` is the only place that turns errors into messages, and `registrationMessage` picks the toast text for register/deregister.
 
 ## Known limitations
 
 - The Vite dev server and `vite preview` handle the history fallback on their own, but any other host needs the fallback set up as above.
 - The create-event form's description box isn't saved yet.
+- There are no automated frontend tests.

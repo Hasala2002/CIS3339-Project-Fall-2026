@@ -10,21 +10,22 @@ The current iteration is based on development done by:
 
 This project uses NodeJS, VUEJS and MongoDB.
 
+- Node 18 or newer (built and tested on Node 25)
+- A MongoDB the backend can reach. The steps below use Docker so nobody has to install Mongo.
+
 ## Backend Node Application
 ```
 cd backend
 ```
-Follow instructions in backend README for setup and running as a local instance.
+See the backend README for the environment variables, database setup, and how access and errors work.
 
 ## Frontend Vue 3 Application
 ```
 cd frontend
 ```
-Follow instructions in frontend README for setup and running as a local instance.
+See the frontend README for the build, how the static site is hosted, and what the frontend expects from the API.
 
-## Running the whole app locally (to test it)
-
-You need Node 18+ and either Docker or a MongoDB you can reach. These steps use Docker so nobody has to install Mongo.
+## Running the whole app locally
 
 ### 1. Start MongoDB
 
@@ -41,26 +42,24 @@ cd backend
 npm install
 ```
 
-Create a file called `backend/.env` (it's gitignored, never commit it) with:
+The `.env` files aren't committed (this repo is public). For grading they come from Canvas, so put them at `backend/.env` and `frontend/.env`. To make your own, copy the examples (on Windows PowerShell use `copy` instead of `cp`):
 
 ```
-MONGO_URL=mongodb://localhost:27018/cis3339
-PORT=3000
-ORG_ID=64e0380b3cc28d087655693b
-JWT_SECRET=any-random-string-you-like
-CORS_ORIGIN=http://localhost:5173
+cp .env.example .env
 ```
 
-`CORS_ORIGIN` has to match the address the frontend is served from (the backend only accepts calls from that one origin) and the backend won't start without it.
+and change `JWT_SECRET` to any long random string. The defaults in `backend/.env.example` already match the Docker command above (`MONGO_URL`, `PORT=3000`, `ORG_ID`, `CORS_ORIGIN=http://localhost:5173`). The backend README explains each variable.
 
-Then load the demo data and start the server:
+Then set up the database and start the server:
 
 ```
-npm run seed:dev
+npm run db:init
 npm start
 ```
 
-You should see "Server listening on port 3000" and "Database connection Success!". The seed creates one organization, the two demo accounts, and 20 clients, 20 services and 20 events (so sorting and pagination have something to show). It refuses to run if the database already has data, and `npm run seed:dev -- --reset` wipes it and starts over. This script is temporary and gets replaced by `npm run db:init` later.
+`db:init` creates the organization, the two demo accounts, and 20 clients, 20 services and 20 events (some with registrations). It's safe to run again, it only adds what's missing. `npm run db:init -- --reset` wipes the data and starts over.
+
+You should see "Server listening on port 3000" and "Database connection Success!". `http://localhost:3000/health` should answer `{"status":"ok","db":"connected"}`.
 
 ### 3. Frontend (in a second terminal)
 
@@ -71,7 +70,7 @@ cp .env.example .env
 npm run dev
 ```
 
-(On Windows PowerShell use `copy .env.example .env`.) Open http://localhost:5173. If your backend isn't on port 3000, change `VITE_ROOT_API` in `frontend/.env` to match.
+Open http://localhost:5173. If your backend isn't on port 3000, change `VITE_ROOT_API` in `frontend/.env` to match.
 
 ### Demo logins
 
@@ -80,21 +79,56 @@ npm run dev
 | Editor (can create, edit, delete) | `admin` | `admin` |
 | Viewer (read only) | `user` | `user` |
 
-### What to check
+### Production build
+
+This is what the final demo runs, not the dev server:
+
+```
+cd frontend
+npm run build
+npm run serve
+```
+
+Then open http://localhost:5173 (stop `npm run dev` first, they use the same port on purpose so the backend's `CORS_ORIGIN` works for both). `VITE_ROOT_API` is read when you build, so rebuild after changing it.
+
+## What to check
+
+**In the browser**
 
 - **Lists (Find Client / Event / Service):** each shows "Showing 1-10 of 20". Click a column header three times (ascending, descending, back to normal). Go to page 2, then search, and you should land back on page 1 with only the matches.
 - **Errors:** stop the backend (Ctrl+C) and click "Clear Search" on a list. You should see "Unable to reach the server" with a Retry button. Start the backend again and click Retry.
-- **Login session:** log in and refresh the page, you should stay logged in. Log out and refresh, you should stay logged out.
+- **Login session:** log in and refresh the page, you should stay logged in. Log out and refresh, you should stay logged out. The dashboard needs a login too.
 - **Roles:** log in as `user` and type `localhost:5173/clientform` in the address bar, you should end up on the dashboard. The Update and Delete buttons on detail pages should be greyed out. Log in as `admin` and the same URL opens the form.
 - **Forms:** as `admin`, create a client, event and service (try submitting them empty first for the validation messages), then update and delete them. An event with attendees and a service used by an event can't be deleted.
-- **Production build:** `cd frontend`, then `npm run build` and `npm run serve`, and open http://localhost:4173. Refreshing on a page like `/findclient` should still work.
+- **Registration:** open a client as `admin`, add them to an event with the dropdown and it shows up in their list. Hover a row and click the X to remove it again. (The viewer can't do either.)
 
-### Known gaps right now
+**Against the API directly** (Postman, or any HTTP client)
 
-The backend doesn't check roles yet, so a viewer is only blocked in the UI (that's the backend security task). Registering a client for an event twice shows an error instead of "Already registered" until that task lands too. The description box on Create Event isn't saved.
+- **Viewer is denied:** log in as `user` (`POST /users/login`), copy the token, and send `POST /clients` with the header `Authorization: Bearer <token>`. You get `403` and `{"error": "..."}`. The same goes for every create, update, delete, register and deregister call. With no token every call except login, `/health` and `/org` gives `401`.
+- **Registration rules:** send `PUT /events/register?event=<event id>&client=<client id>` as `admin` twice. The first answer is `{"event": ..., "client": ...}` and the second is `{"message": "Already registered"}`, and the event still lists the client once. `PUT /events/deregister` with the same ids does the opposite, answering `{"message": "Not registered"}` the second time. An event or client id that doesn't exist (or belongs to another organization) gives `404`.
+- **Organization isolation:** create a second organization in the same database with `ORG_ID=64e0380b3cc28d087655693c npm run db:init` (run from `backend`, with your usual `MONGO_URL`). The database now holds two organizations, but logged in as `admin` the lists still show only your 20 of each. Get the id of one of the other organization's clients with `docker exec cis3339-mongo mongosh cis3339 --quiet --eval "print(db.clients.findOne({orgs: ObjectId('64e0380b3cc28d087655693c')})._id.toString())"` and ask for it with `GET /clients/id/<that id>`. You get `404`, and updating or deleting it fails the same way.
+- **Error shape:** `GET /clients/id/abc` gives `400`, `GET /clients/id/000000000000000000000001` gives `404`, and `GET /nothing` gives `404`, all as `{"error": "..."}`.
 
-### Stopping and cleaning up
+## Deployment
+
+We haven't deployed to a public host. The final demo runs the production build locally as described above. To put it online:
+
+1. **Database:** use any MongoDB the backend can reach, for example a free MongoDB Atlas cluster. Make a dedicated database user with read and write access to this project's database only, and put its connection string in `MONGO_URL`. Run `npm run db:init` once against it.
+2. **Backend:** deploy `backend/` to any Node host with `npm install` and `npm start`, and set the environment variables from the backend README on the host. Set `CORS_ORIGIN` to the exact address the frontend will be served from, and check `GET /health` on the deployed URL.
+3. **Frontend:** set `VITE_ROOT_API` to the deployed backend's address, run `npm run build`, and upload `frontend/dist` to a static host. The host has to send `index.html` for any path that isn't a real file, otherwise refreshing a page like `/clientdetails/<id>` returns a 404. The frontend README has the nginx, Netlify and Apache settings.
+
+## Tests
+
+There are no automated tests (that part is optional). The checks above are done by hand, and we ran them as we built each piece.
+
+## Known limitations
+
+- The description box on Create Event isn't saved.
+- Login tokens last 30 days and there's no way to revoke one before then.
+- Sorting and pagination happen in the browser on the rows already loaded, so they don't scale to very large lists.
+- One running backend serves one organization (the one in `ORG_ID`), and there's no screen for managing users or organizations.
+- Not deployed publicly, see Deployment above.
+
+## Stopping and cleaning up
 
 Press Ctrl+C in both terminals, then `docker stop cis3339-mongo`. To delete the test data entirely, `docker rm -f cis3339-mongo`.
-
-
